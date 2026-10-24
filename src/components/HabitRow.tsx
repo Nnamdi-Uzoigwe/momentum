@@ -38,7 +38,7 @@ export function HabitRow({ item, onToggle }: Props) {
 
   const handleLongPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({ pathname: "/habit/edit", params: { id: habit.id } });
+    router.push({ pathname: "/habit/[id]", params: { id: habit.id } });
   };
 
   const streakLabel = `${streak.current}${streak.unit === "week" ? "w" : ""}`;
@@ -57,7 +57,7 @@ export function HabitRow({ item, onToggle }: Props) {
         accessibilityRole="checkbox"
         accessibilityState={{ checked: done }}
         accessibilityLabel={habit.name}
-        accessibilityHint="Long press to edit"
+        accessibilityHint="Long press for details"
         style={[
           styles.row,
           {
