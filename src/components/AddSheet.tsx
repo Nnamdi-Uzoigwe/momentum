@@ -2,13 +2,14 @@ import { AppText } from "@/components/AppText";
 import { useTheme } from "@/theme";
 import { Feather } from "@expo/vector-icons";
 import {
-    BottomSheetBackdrop,
-    BottomSheetModal,
-    BottomSheetView,
-    useBottomSheetModal,
-    type BottomSheetBackdropProps,
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetView,
+  useBottomSheetModal,
+  type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
 import { forwardRef, useCallback } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -55,8 +56,10 @@ export const AddSheet = forwardRef<BottomSheetModal>((_, ref) => {
   const onSelect = (key: Option["key"]) => {
     Haptics.selectionAsync();
     dismiss();
-    // Step 4 and 6 will route to habit/edit and goal/edit here
-    console.log("selected", key);
+    if (key === "habit") {
+      router.push("/habit/edit");
+    }
+    // Goals arrive in step 6
   };
 
   return (
