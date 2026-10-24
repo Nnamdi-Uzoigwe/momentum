@@ -54,7 +54,7 @@ export default function TodayScreen() {
             size={96}
             stroke={10}
             color={colors.onAccent}
-            trackColor="rgba(27, 26, 23, 0.18)"
+            trackColor={`${colors.onAccent}33`}
           >
             <AppText variant="heading" color={colors.onAccent}>
               {Math.round(ratio * 100)}%
@@ -65,7 +65,7 @@ export default function TodayScreen() {
             <AppText variant="title" color={colors.onAccent}>
               {doneCount} of {total} done
             </AppText>
-            <AppText variant="body" color={colors.onAccent}>
+            <AppText variant="bodyStrong" color={colors.onAccent}>
               {heroMessage(doneCount, total)}
             </AppText>
           </View>

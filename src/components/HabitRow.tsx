@@ -3,14 +3,16 @@ import { CheckCircle } from "@/components/CheckCircle";
 import type { TodayItem } from "@/db/habits";
 import { describeRule } from "@/lib/schedule";
 import { useTheme } from "@/theme";
+import { resolveHabitColor } from "@/theme/habitColors";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-    withTiming,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 
 type Props = {
@@ -19,8 +21,9 @@ type Props = {
 };
 
 export function HabitRow({ item, onToggle }: Props) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { habit, done, streak } = item;
+  const tone = resolveHabitColor(habit.color, isDark, colors);
 
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -33,12 +36,18 @@ export function HabitRow({ item, onToggle }: Props) {
     onToggle(habit.id);
   };
 
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({ pathname: "/habit/edit", params: { id: habit.id } });
+  };
+
   const streakLabel = `${streak.current}${streak.unit === "week" ? "w" : ""}`;
 
   return (
     <Animated.View style={animatedStyle}>
       <Pressable
         onPress={handlePress}
+        onLongPress={handleLongPress}
         onPressIn={() => {
           scale.value = withTiming(0.97, { duration: 90 });
         }}
@@ -48,21 +57,26 @@ export function HabitRow({ item, onToggle }: Props) {
         accessibilityRole="checkbox"
         accessibilityState={{ checked: done }}
         accessibilityLabel={habit.name}
+        accessibilityHint="Long press to edit"
         style={[
           styles.row,
-          { backgroundColor: colors.surface, borderColor: colors.border },
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            shadowColor: colors.shadow,
+          },
         ]}
       >
         <View
           style={[
             styles.iconBox,
-            { backgroundColor: done ? colors.surfaceAlt : colors.accentSoft },
+            { backgroundColor: done ? colors.surfaceAlt : tone.soft },
           ]}
         >
           <Feather
             name={habit.icon as keyof typeof Feather.glyphMap}
             size={22}
-            color={done ? colors.textMuted : colors.accent}
+            color={done ? colors.textMuted : tone.solid}
           />
         </View>
 
@@ -77,7 +91,7 @@ export function HabitRow({ item, onToggle }: Props) {
 
         {streak.current > 0 ? (
           <View style={[styles.streak, { backgroundColor: colors.accentSoft }]}>
-            <Ionicons name="flame" size={14} color={colors.accent} />
+            <Ionicons name="flame" size={14} color={colors.warning} />
             <AppText variant="label" color={colors.accentDeep}>
               {streakLabel}
             </AppText>
@@ -98,6 +112,10 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   iconBox: {
     width: 48,
