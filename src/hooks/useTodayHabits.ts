@@ -1,3 +1,4 @@
+import { applyFreeze, getFreezesLeft, getFrozenByHabit } from "@/db/freezes";
 import {
   deleteHabit,
   getTodayItems,
@@ -5,42 +6,80 @@ import {
   toggleCompletion,
 } from "@/db/habits";
 import { getHabitHistories } from "@/db/review";
+import type { Habit } from "@/db/types";
 import { useCelebration } from "@/lib/celebrationHost";
 import { evaluateCheckIn } from "@/lib/celebrations";
-import { toDateKey } from "@/lib/dates";
+import { addDays, toDateKey } from "@/lib/dates";
+import { streakSaverFor } from "@/lib/freezes";
 import { syncReminders } from "@/lib/reminders";
+import { computeStreak } from "@/lib/streaks";
 import { lastSevenDays, type TodayRow } from "@/lib/weekDots";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 
+export type AtRisk = { habit: Habit; saved: number; frozenOn: string };
+
 export function useTodayHabits() {
   const [items, setItems] = useState<TodayRow[]>([]);
+  const [atRisk, setAtRisk] = useState<AtRisk[]>([]);
+  const [freezesLeft, setFreezesLeft] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const { showToast, showCelebration } = useCelebration();
 
   const reload = useCallback(async (): Promise<TodayRow[]> => {
     const today = toDateKey();
-    const [base, histories] = await Promise.all([
+    const [base, histories, frozenById, left] = await Promise.all([
       getTodayItems(today),
       getHabitHistories(),
+      getFrozenByHabit(),
+      getFreezesLeft(today),
     ]);
     const datesById = new Map(
       histories.map((h) => [h.habit.id, h.dates] as const),
     );
 
-    const next: TodayRow[] = base.map((item) => ({
-      ...item,
-      week: lastSevenDays(
-        item.habit,
-        datesById.get(item.habit.id) ?? [],
-        today,
-      ),
-    }));
+    const rows: TodayRow[] = [];
+    const risky: AtRisk[] = [];
 
-    setItems(next);
+    for (const item of base) {
+      const { habit } = item;
+      const dates = datesById.get(habit.id) ?? [];
+      const frozen = frozenById.get(habit.id) ?? [];
+
+      // Recompute with freezes so protected days keep the streak alive
+      const streak = computeStreak({
+        rule: habit.rule,
+        completedDates: dates,
+        startDate: habit.startDate,
+        today,
+        frozenDates: frozen,
+      });
+
+      rows.push({
+        ...item,
+        streak,
+        week: lastSevenDays(habit, dates, today, new Set(frozen)),
+      });
+
+      const saved = streakSaverFor({
+        rule: habit.rule,
+        startDate: habit.startDate,
+        dates,
+        frozen,
+        today,
+      });
+      if (saved !== null) {
+        risky.push({ habit, saved, frozenOn: addDays(today, -1) });
+      }
+    }
+    risky.sort((a, b) => b.saved - a.saved);
+
+    setItems(rows);
+    setAtRisk(risky);
+    setFreezesLeft(left);
     setLoaded(true);
-    return next;
+    return rows;
   }, []);
 
   // Reload every time the Today tab (or screen on top of it) gains focus
@@ -136,5 +175,30 @@ export function useTodayHabits() {
     [reload],
   );
 
-  return { items, loaded, toggle, archive, remove };
+  // Protects one missed day so the streak stays alive
+  const freezeDay = useCallback(
+    async (habitId: string, dateKey: string) => {
+      try {
+        const ok = await applyFreeze(habitId, dateKey, toDateKey());
+        if (!ok) return;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await reload();
+        showToast({ message: "Streak saved with a freeze.", icon: "shield" });
+      } catch (e) {
+        console.error("Failed to use a streak freeze", e);
+      }
+    },
+    [reload, showToast],
+  );
+
+  return {
+    items,
+    loaded,
+    toggle,
+    archive,
+    remove,
+    atRisk,
+    freezesLeft,
+    freezeDay,
+  };
 }

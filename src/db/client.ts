@@ -1,6 +1,6 @@
 import * as SQLite from "expo-sqlite";
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -87,6 +87,19 @@ async function migrate(db: SQLite.SQLiteDatabase) {
         "INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarding_done', '1')",
       );
     }
+  }
+
+  if (current < 3) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS streak_freezes (
+        id TEXT PRIMARY KEY NOT NULL,
+        habit_id TEXT NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
+        frozen_on TEXT NOT NULL,
+        used_on TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        UNIQUE (habit_id, frozen_on)
+      );
+    `);
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);

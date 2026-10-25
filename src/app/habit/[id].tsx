@@ -2,8 +2,9 @@ import { AppText } from "@/components/AppText";
 import { Heatmap } from "@/components/HeatMap";
 import { useHabitDetail } from "@/hooks/useHabitDetail";
 import { parseDateKey, toDateKey } from "@/lib/dates";
+import { MONTHLY_FREEZES, freezeBlockReason } from "@/lib/freezes";
 import { describeRule } from "@/lib/schedule";
-import { buildHeatmap, completionRate } from "@/lib/stats";
+import { buildHeatmap, completionRate, type HeatmapCell } from "@/lib/stats";
 import { computeStreak } from "@/lib/streaks";
 import { formatTime } from "@/lib/time";
 import { useTheme } from "@/theme";
@@ -12,11 +13,26 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, type ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type AlertButton,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 function plural(n: number, singular: string) {
   return n === 1 ? singular : `${singular}s`;
+}
+
+function formatDay(key: string) {
+  return parseDateKey(key).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 type TileProps = {
@@ -62,13 +78,16 @@ function StatTile({ label, value, unit, caption, icon }: TileProps) {
 export default function HabitDetailScreen() {
   const { colors, isDark } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { habit, dates, loaded, toggleDay } = useHabitDetail(id);
+  const { habit, dates, frozen, freezesLeft, loaded, toggleDay, freezeDay } =
+    useHabitDetail(id);
   const today = toDateKey();
 
   // Leave if the habit was deleted or archived (for example from the edit screen)
   useEffect(() => {
     if (loaded && (!habit || habit.archived)) router.back();
   }, [loaded, habit]);
+
+  const frozenSet = useMemo(() => new Set(frozen), [frozen]);
 
   const streak = useMemo(
     () =>
@@ -78,9 +97,10 @@ export default function HabitDetailScreen() {
             completedDates: dates,
             startDate: habit.startDate,
             today,
+            frozenDates: frozen,
           })
         : null,
-    [habit, dates, today],
+    [habit, dates, frozen, today],
   );
 
   const columns = useMemo(
@@ -95,6 +115,12 @@ export default function HabitDetailScreen() {
         : [],
     [habit, dates, today],
   );
+
+  const cellMap = useMemo(() => {
+    const map = new Map<string, HeatmapCell>();
+    columns.forEach((col) => col.forEach((c) => map.set(c.key, c)));
+    return map;
+  }, [columns]);
 
   const rate = useMemo(
     () =>
@@ -169,6 +195,56 @@ export default function HabitDetailScreen() {
 
   const onPressDay = (key: string) => {
     Haptics.selectionAsync();
+    const cell = cellMap.get(key);
+    if (!cell) return;
+
+    if (frozenSet.has(key) && cell.state === "missed") {
+      Alert.alert(
+        "Frozen day",
+        "A streak freeze protects this day, so your streak stays alive.",
+      );
+      return;
+    }
+
+    if (cell.state === "missed") {
+      const reason = freezeBlockReason({
+        rule: habit.rule,
+        frozenOn: key,
+        today,
+        startDate: habit.startDate,
+        frozen,
+        left: freezesLeft,
+      });
+
+      const buttons: AlertButton[] = [
+        { text: "Cancel", style: "cancel" },
+        { text: "Mark as done", onPress: () => toggleDay(key) },
+      ];
+      if (!reason) {
+        buttons.splice(1, 0, {
+          text: `Use a freeze (${freezesLeft} left)`,
+          onPress: () => {
+            freezeDay(key).then((ok) => {
+              if (ok) {
+                Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success,
+                );
+              }
+            });
+          },
+        });
+      }
+
+      Alert.alert(
+        formatDay(key),
+        reason
+          ? `You missed this day. ${reason}`
+          : "You missed this day. Mark it as done, or use a streak freeze to protect your streak.",
+        buttons,
+      );
+      return;
+    }
+
     toggleDay(key);
   };
 
@@ -246,7 +322,21 @@ export default function HabitDetailScreen() {
               Tap a day to mark or unmark it
             </AppText>
           </View>
-          <Heatmap columns={columns} tone={tone} onPressDay={onPressDay} />
+          <Heatmap
+            columns={columns}
+            tone={tone}
+            frozen={frozenSet}
+            onPressDay={onPressDay}
+          />
+          {habit.rule.type !== "weekly" ? (
+            <View style={styles.freezeRow}>
+              <Ionicons name="snow" size={16} color={tone.solid} />
+              <AppText variant="caption" muted>
+                {freezesLeft} of {MONTHLY_FREEZES} streak freezes left this
+                month
+              </AppText>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -305,4 +395,5 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   cardHead: { gap: 2 },
+  freezeRow: { flexDirection: "row", alignItems: "center", gap: 8 },
 });

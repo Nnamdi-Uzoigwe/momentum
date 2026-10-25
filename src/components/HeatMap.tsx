@@ -3,18 +3,20 @@ import { parseDateKey } from "@/lib/dates";
 import type { HeatmapCell } from "@/lib/stats";
 import { useTheme } from "@/theme";
 import type { HabitTone } from "@/theme/habitColors";
+import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    View,
-    type LayoutChangeEvent,
-    type ViewStyle,
+  Pressable,
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+  type ViewStyle,
 } from "react-native";
 
 type Props = {
   columns: HeatmapCell[][];
   tone: HabitTone;
+  frozen: Set<string>;
   onPressDay: (key: string) => void;
 };
 
@@ -31,7 +33,7 @@ function monthName(key: string) {
   return parseDateKey(key).toLocaleDateString("en-US", { month: "short" });
 }
 
-export function Heatmap({ columns, tone, onPressDay }: Props) {
+export function Heatmap({ columns, tone, frozen, onPressDay }: Props) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
 
@@ -52,11 +54,16 @@ export function Heatmap({ columns, tone, onPressDay }: Props) {
     return monthOf(columns[c - 1][0].key) !== month;
   };
 
+  const isFrozen = (c: HeatmapCell) =>
+    c.state === "missed" && frozen.has(c.key);
+
   const styleFor = (c: HeatmapCell): ViewStyle => {
     const base: ViewStyle = {
       width: cell,
       height: cell,
       borderRadius: Math.max(4, cell * 0.3),
+      alignItems: "center",
+      justifyContent: "center",
     };
     let style: ViewStyle;
     switch (c.state) {
@@ -64,7 +71,10 @@ export function Heatmap({ columns, tone, onPressDay }: Props) {
         style = { ...base, backgroundColor: tone.solid };
         break;
       case "missed":
-        style = { ...base, backgroundColor: `${colors.error}33` };
+        style = {
+          ...base,
+          backgroundColor: isFrozen(c) ? tone.soft : `${colors.error}33`,
+        };
         break;
       case "today":
         style = { ...base, backgroundColor: tone.soft };
@@ -141,9 +151,17 @@ export function Heatmap({ columns, tone, onPressDay }: Props) {
                       disabled={!c.canToggle}
                       onPress={() => onPressDay(c.key)}
                       accessibilityRole="button"
-                      accessibilityLabel={`${c.key}, ${c.state}`}
+                      accessibilityLabel={`${c.key}, ${isFrozen(c) ? "frozen" : c.state}`}
                       style={styleFor(c)}
-                    />
+                    >
+                      {isFrozen(c) ? (
+                        <Ionicons
+                          name="snow"
+                          size={Math.max(8, Math.round(cell * 0.6))}
+                          color={tone.solid}
+                        />
+                      ) : null}
+                    </Pressable>
                   ))}
                 </View>
               ))}
@@ -168,6 +186,14 @@ export function Heatmap({ columns, tone, onPressDay }: Props) {
               />
               <AppText variant="label" muted>
                 Missed
+              </AppText>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: tone.soft }]}>
+                <Ionicons name="snow" size={9} color={tone.solid} />
+              </View>
+              <AppText variant="label" muted>
+                Frozen
               </AppText>
             </View>
             <View style={styles.legendItem}>
@@ -201,5 +227,11 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  legendDot: { width: 12, height: 12, borderRadius: 4 },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

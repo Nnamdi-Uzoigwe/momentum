@@ -1,10 +1,22 @@
-// All day logic uses the user's LOCAL date as a 'YYYY-MM-DD' key
+// All day logic uses the user's LOCAL date as a 'YYYY-MM-DD' key.
+//
+// Grace period: until GRACE_HOURS in the morning, "today" is still the previous
+// day, so a late night check-in after midnight counts for the day it belongs to.
+// toDateKey() with no argument gives that grace-aware "today". Passing a Date
+// gives the exact calendar date of that moment.
 
-export function toDateKey(date: Date = new Date()): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+export const GRACE_HOURS = 3;
+
+export function isInGrace(now: Date = new Date()): boolean {
+  return now.getHours() < GRACE_HOURS;
+}
+
+export function toDateKey(date?: Date): string {
+  const d = date ?? new Date(Date.now() - GRACE_HOURS * 3600 * 1000);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export function parseDateKey(key: string): Date {

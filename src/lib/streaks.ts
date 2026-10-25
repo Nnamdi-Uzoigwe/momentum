@@ -12,6 +12,7 @@ type Input = {
   completedDates: string[];
   startDate: string;
   today: string;
+  frozenDates?: string[];
 };
 
 export function computeStreak({
@@ -19,16 +20,19 @@ export function computeStreak({
   completedDates,
   startDate,
   today,
+  frozenDates = [],
 }: Input): StreakResult {
   const done = new Set(completedDates);
+  const frozen = new Set(frozenDates);
   return rule.type === "weekly"
     ? weeklyStreak(rule.count, done, startDate, today)
-    : dailyStreak(rule, done, startDate, today);
+    : dailyStreak(rule, done, frozen, startDate, today);
 }
 
 function dailyStreak(
   rule: FrequencyRule,
   done: Set<string>,
+  frozen: Set<string>,
   startDate: string,
   today: string,
 ): StreakResult {
@@ -37,6 +41,8 @@ function dailyStreak(
   for (let k = today; k >= startDate; k = addDays(k, -1)) {
     if (!isScheduledOn(rule, k)) continue; // non-scheduled days never break it
     if (done.has(k)) current++;
+    else if (frozen.has(k))
+      continue; // a freeze keeps the streak without adding to it
     else if (k === today)
       continue; // today is still in progress
     else break;
@@ -50,6 +56,8 @@ function dailyStreak(
     if (done.has(k)) {
       run++;
       if (run > best) best = run;
+    } else if (frozen.has(k)) {
+      continue;
     } else if (k !== today) {
       run = 0;
     }

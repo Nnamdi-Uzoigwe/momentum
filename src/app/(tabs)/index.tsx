@@ -3,6 +3,7 @@ import { HabitRow } from "@/components/HabitRow";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProgressRing } from "@/components/ProgressRing";
 import { Screen } from "@/components/Screen";
+import { StreakSaver } from "@/components/StreakSaver";
 import { TodayHeader } from "@/components/TodayHeader";
 import { useTodayHabits } from "@/hooks/useTodayHabits";
 import { useUserName } from "@/hooks/useUserName";
@@ -21,7 +22,16 @@ function heroMessage(done: number, total: number) {
 
 export default function TodayScreen() {
   const { colors } = useTheme();
-  const { items, loaded, toggle, archive, remove } = useTodayHabits();
+  const {
+    items,
+    loaded,
+    toggle,
+    archive,
+    remove,
+    atRisk,
+    freezesLeft,
+    freezeDay,
+  } = useTodayHabits();
   const { name } = useUserName();
 
   const total = items.length;
@@ -36,9 +46,20 @@ export default function TodayScreen() {
     0,
   );
 
+  const saver = freezesLeft > 0 ? atRisk[0] : undefined;
+
   return (
     <Screen>
       <TodayHeader name={name} />
+
+      {saver ? (
+        <StreakSaver
+          habitName={saver.habit.name}
+          saved={saver.saved}
+          left={freezesLeft}
+          onUse={() => freezeDay(saver.habit.id, saver.frozenOn)}
+        />
+      ) : null}
 
       {total > 0 ? (
         <LinearGradient
