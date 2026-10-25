@@ -56,10 +56,7 @@ export const AddSheet = forwardRef<BottomSheetModal>((_, ref) => {
   const onSelect = (key: Option["key"]) => {
     Haptics.selectionAsync();
     dismiss();
-    if (key === "habit") {
-      router.push("/habit/edit");
-    }
-    // Goals arrive in step 6
+    router.push(key === "habit" ? "/habit/edit" : "/goal/edit");
   };
 
   return (

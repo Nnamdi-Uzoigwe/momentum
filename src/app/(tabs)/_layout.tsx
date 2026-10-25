@@ -1,7 +1,12 @@
 import { FloatingTabBar } from "@/components/FloatingTabBar";
-import { Tabs } from "expo-router";
+import { useOnboarding } from "@/lib/onboarding";
+import { Redirect, Tabs } from "expo-router";
 
 export default function TabsLayout() {
+  const { done } = useOnboarding();
+
+  if (!done) return <Redirect href="/welcome" />;
+
   return (
     <Tabs
       tabBar={(props) => <FloatingTabBar {...props} />}

@@ -1,4 +1,7 @@
+import { BrandSplash } from "@/components/BrandSplash";
 import { getDb } from "@/db/client";
+import { getSetting } from "@/db/settings";
+import { OnboardingProvider } from "@/lib/onboarding";
 import { ThemeProvider, useTheme } from "@/theme";
 import {
   Inter_400Regular,
@@ -14,7 +17,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 SplashScreen.preventAutoHideAsync();
@@ -43,14 +46,18 @@ export default function RootLayout() {
     Inter_600SemiBold,
   });
   const [dbReady, setDbReady] = useState(false);
+  const [onboarded, setOnboarded] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     getDb()
-      .then(() => setDbReady(true))
+      .then(() => getSetting("onboarding_done"))
+      .then((value) => setOnboarded(value === "1"))
       .catch((error) => {
         console.error("Database failed to open", error);
-        setDbReady(true); // do not block the app forever
-      });
+        setOnboarded(true); // do not trap the user in onboarding
+      })
+      .finally(() => setDbReady(true));
   }, []);
 
   const ready = fontsLoaded && dbReady;
@@ -59,14 +66,19 @@ export default function RootLayout() {
     if (ready) SplashScreen.hideAsync();
   }, [ready]);
 
+  const hideBrandSplash = useCallback(() => setShowSplash(false), []);
+
   if (!ready) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider>
-        <BottomSheetModalProvider>
-          <RootStack />
-        </BottomSheetModalProvider>
+        <OnboardingProvider initialDone={onboarded}>
+          <BottomSheetModalProvider>
+            <RootStack />
+          </BottomSheetModalProvider>
+        </OnboardingProvider>
+        {showSplash ? <BrandSplash onDone={hideBrandSplash} /> : null}
       </ThemeProvider>
     </GestureHandlerRootView>
   );

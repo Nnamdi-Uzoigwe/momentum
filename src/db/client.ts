@@ -1,6 +1,6 @@
 import * as SQLite from "expo-sqlite";
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -68,6 +68,25 @@ async function migrate(db: SQLite.SQLiteDatabase) {
         unlocked_at INTEGER NOT NULL
       );
     `);
+  }
+
+  if (current < 2) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY NOT NULL,
+        value TEXT NOT NULL
+      );
+    `);
+
+    // Anyone who already has habits is an existing user, so skip onboarding
+    const existing = await db.getFirstAsync<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM habits",
+    );
+    if ((existing?.n ?? 0) > 0) {
+      await db.runAsync(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('onboarding_done', '1')",
+      );
+    }
   }
 
   await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
