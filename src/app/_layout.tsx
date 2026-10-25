@@ -2,9 +2,15 @@ import { BrandSplash } from "@/components/BrandSplash";
 import { ReminderSync } from "@/components/ReminderSync";
 import { getDb } from "@/db/client";
 import { getSetting } from "@/db/settings";
+import { CelebrationProvider } from "@/lib/celebrationHost";
 import { OnboardingProvider } from "@/lib/onboarding";
 import { setupNotifications } from "@/lib/reminders";
-import { ThemeProvider, useTheme } from "@/theme";
+import {
+  ThemeProvider,
+  parseThemeMode,
+  useTheme,
+  type ThemeMode,
+} from "@/theme";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -49,6 +55,7 @@ export default function RootLayout() {
   });
   const [dbReady, setDbReady] = useState(false);
   const [onboarded, setOnboarded] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
@@ -59,8 +66,13 @@ export default function RootLayout() {
 
   useEffect(() => {
     getDb()
-      .then(() => getSetting("onboarding_done"))
-      .then((value) => setOnboarded(value === "1"))
+      .then(() =>
+        Promise.all([getSetting("onboarding_done"), getSetting("theme_mode")]),
+      )
+      .then(([done, theme]) => {
+        setOnboarded(done === "1");
+        setThemeMode(parseThemeMode(theme));
+      })
       .catch((error) => {
         console.error("Database failed to open", error);
         setOnboarded(true); // do not trap the user in onboarding
@@ -80,12 +92,14 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
+      <ThemeProvider initialMode={themeMode}>
         <OnboardingProvider initialDone={onboarded}>
-          <BottomSheetModalProvider>
-            <RootStack />
-          </BottomSheetModalProvider>
-          <ReminderSync />
+          <CelebrationProvider>
+            <BottomSheetModalProvider>
+              <RootStack />
+            </BottomSheetModalProvider>
+            <ReminderSync />
+          </CelebrationProvider>
         </OnboardingProvider>
         {showSplash ? <BrandSplash onDone={hideBrandSplash} /> : null}
       </ThemeProvider>

@@ -1,13 +1,14 @@
+import { Burst } from "@/components/Burst";
 import { useTheme } from "@/theme";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
-    useAnimatedProps,
-    useAnimatedStyle,
-    useSharedValue,
-    withSequence,
-    withSpring,
-    withTiming,
+  useAnimatedProps,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 
@@ -21,6 +22,7 @@ export function CheckCircle({ done, size = 34 }: Props) {
   const fill = useSharedValue(done ? 1 : 0);
   const pop = useSharedValue(1);
   const mounted = useRef(false);
+  const [burst, setBurst] = useState(0);
 
   useEffect(() => {
     fill.value = withTiming(done ? 1 : 0, { duration: 220 });
@@ -29,6 +31,7 @@ export function CheckCircle({ done, size = 34 }: Props) {
         withTiming(1.2, { duration: 100 }),
         withSpring(1, { damping: 10, stiffness: 260 }),
       );
+      setBurst((b) => b + 1);
     }
     mounted.current = true;
   }, [done, fill, pop]);
@@ -81,6 +84,7 @@ export function CheckCircle({ done, size = 34 }: Props) {
           animatedProps={checkProps}
         />
       </Svg>
+      <Burst trigger={burst} count={8} radius={size * 0.9} size={5} />
     </Animated.View>
   );
 }

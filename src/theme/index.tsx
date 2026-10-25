@@ -1,9 +1,11 @@
+import { setSetting } from "@/db/settings";
 import {
-    createContext,
-    useContext,
-    useMemo,
-    useState,
-    type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
 } from "react";
 import { useColorScheme } from "react-native";
 import { darkColors, lightColors, type ThemeColors } from "./colors";
@@ -22,9 +24,27 @@ const ThemeContext = createContext<ThemeValue | null>(null);
 // Space reserved at the bottom of scroll content so the floating bar never covers it
 export const TAB_BAR_CLEARANCE = 128;
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+// Anything unknown falls back to light
+export function parseThemeMode(value: string | null): ThemeMode {
+  return value === "dark" || value === "system" ? value : "light";
+}
+
+export function ThemeProvider({
+  children,
+  initialMode = "light",
+}: {
+  children: ReactNode;
+  initialMode?: ThemeMode;
+}) {
   const system = useColorScheme();
-  const [mode, setMode] = useState<ThemeMode>("light");
+  const [mode, setModeState] = useState<ThemeMode>(initialMode);
+
+  const setMode = useCallback((next: ThemeMode) => {
+    setModeState(next);
+    setSetting("theme_mode", next).catch((e) =>
+      console.error("Failed to save theme", e),
+    );
+  }, []);
 
   const value = useMemo<ThemeValue>(() => {
     const isDark = mode === "system" ? system === "dark" : mode === "dark";
@@ -34,7 +54,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       mode,
       setMode,
     };
-  }, [mode, system]);
+  }, [mode, system, setMode]);
 
   return (
     <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

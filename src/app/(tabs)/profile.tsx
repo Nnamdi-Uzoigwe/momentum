@@ -1,152 +1,120 @@
 import { AppText } from "@/components/AppText";
-import { PrimaryButton } from "@/components/PrimaryButton";
 import { Screen } from "@/components/Screen";
-import { useOnboarding } from "@/lib/onboarding";
-import {
-  getReminderPermission,
-  requestReminderPermission,
-  scheduleTestReminder,
-  syncReminders,
-  type ReminderPermission,
-} from "@/lib/reminders";
+import { AppearanceCard } from "@/components/profile/AppearanceCard";
+import { ArchivedHabits } from "@/components/profile/ArchivedHabits";
+import { DeveloperTools } from "@/components/profile/DeveloperTools";
+import { RemindersCard } from "@/components/profile/RemindersCard";
+import { Section } from "@/components/profile/Section";
+import { useProfileData } from "@/hooks/useProfileData";
 import { useTheme } from "@/theme";
 import { Feather } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
-import { Linking, StyleSheet, View } from "react-native";
+import Constants from "expo-constants";
+import { LinearGradient } from "expo-linear-gradient";
+import { StyleSheet, View } from "react-native";
 
-const COPY: Record<
-  ReminderPermission,
-  {
-    icon: keyof typeof Feather.glyphMap;
-    title: string;
-    body: string;
-    action: string;
-  }
-> = {
-  granted: {
-    icon: "bell",
-    title: "Reminders are on",
-    body: "Each habit with a reminder time nudges you once a day. Finishing a habit skips that day.",
-    action: "Send a test reminder",
-  },
-  undetermined: {
-    icon: "bell",
-    title: "Turn on reminders",
-    body: "Allow notifications so your habit reminders can reach you.",
-    action: "Allow notifications",
-  },
-  denied: {
-    icon: "bell-off",
-    title: "Reminders are off",
-    body: "Notifications are blocked for Momentum. You can turn them on in your phone settings.",
-    action: "Open settings",
-  },
-};
+function Stat({ value, label }: { value: number; label: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.stat}>
+      <AppText variant="title" color={colors.onAccent}>
+        {value}
+      </AppText>
+      <AppText variant="caption" color={colors.onAccent}>
+        {label}
+      </AppText>
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
-  const { replay } = useOnboarding();
-  const [permission, setPermission] =
-    useState<ReminderPermission>("undetermined");
-  const [testSent, setTestSent] = useState(false);
-
-  const refresh = useCallback(async () => {
-    const { status } = await getReminderPermission();
-    setPermission(status);
-  }, []);
-
-  // Refresh on focus, which also catches returning from phone settings
-  useFocusEffect(
-    useCallback(() => {
-      refresh().catch((e) => console.error(e));
-    }, [refresh]),
-  );
-
-  const copy = COPY[permission];
-
-  const onPrimary = async () => {
-    try {
-      if (permission === "granted") {
-        setTestSent(await scheduleTestReminder());
-      } else if (permission === "undetermined") {
-        await requestReminderPermission();
-        await refresh();
-        await syncReminders();
-      } else {
-        await Linking.openSettings();
-      }
-    } catch (e) {
-      console.error("Reminder action failed", e);
-    }
-  };
+  const { archived, stats, reload } = useProfileData();
+  const version = Constants.expoConfig?.version ?? "1.0.0";
 
   return (
     <Screen>
-      <AppText variant="display">Profile</AppText>
+      <View>
+        <AppText variant="caption" muted>
+          Your space
+        </AppText>
+        <AppText variant="display">Profile</AppText>
+      </View>
 
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
+      <LinearGradient
+        colors={[colors.gradientStart, colors.gradientEnd]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.hero}
       >
-        <View style={styles.head}>
-          <View style={[styles.icon, { backgroundColor: colors.accentSoft }]}>
-            <Feather name={copy.icon} size={22} color={colors.accent} />
+        <View style={styles.heroTop}>
+          <View
+            style={[styles.mark, { backgroundColor: `${colors.onAccent}26` }]}
+          >
+            <Feather name="check" size={24} color={colors.onAccent} />
           </View>
-          <AppText variant="heading" style={styles.headText}>
-            {copy.title}
-          </AppText>
+          <View>
+            <AppText variant="title" color={colors.onAccent}>
+              Momentum
+            </AppText>
+            <AppText variant="bodyStrong" color={colors.onAccent}>
+              Small daily wins
+            </AppText>
+          </View>
         </View>
-        <AppText variant="body" muted>
-          {copy.body}
-        </AppText>
-        <PrimaryButton label={copy.action} onPress={onPrimary} />
-        {testSent && permission === "granted" ? (
-          <AppText variant="caption" muted>
-            Test reminder sent. It should arrive in about 5 seconds.
-          </AppText>
-        ) : null}
-      </View>
 
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.surface, borderColor: colors.border },
-        ]}
-      >
-        <AppText variant="heading">Developer tools</AppText>
-        <AppText variant="body" muted>
-          Real settings arrive in step 11. For now you can replay the welcome
-          flow to test it.
+        <View
+          style={[styles.stats, { backgroundColor: `${colors.onAccent}1F` }]}
+        >
+          <Stat value={stats?.checkIns ?? 0} label="Check-ins" />
+          <Stat value={stats?.activeDays ?? 0} label="Active days" />
+          <Stat value={stats?.badges ?? 0} label="Badges" />
+        </View>
+      </LinearGradient>
+
+      <AppearanceCard />
+      <RemindersCard />
+
+      {archived.length > 0 ? (
+        <ArchivedHabits habits={archived} onChanged={reload} />
+      ) : null}
+
+      <Section title="About">
+        <View style={styles.aboutRow}>
+          <AppText variant="body" muted>
+            Version
+          </AppText>
+          <AppText variant="bodyStrong">{version}</AppText>
+        </View>
+        <AppText variant="caption" muted>
+          Your habits and history are stored on this device. Nothing is
+          uploaded.
         </AppText>
-        <PrimaryButton
-          label="Replay onboarding"
-          icon="refresh-cw"
-          onPress={() => {
-            replay();
-          }}
-        />
-      </View>
+      </Section>
+
+      <DeveloperTools />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    padding: 20,
-    gap: 12,
-    borderRadius: 24,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  head: { flexDirection: "row", alignItems: "center", gap: 12 },
-  icon: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+  hero: { padding: 20, gap: 18, borderRadius: 32 },
+  heroTop: { flexDirection: "row", alignItems: "center", gap: 14 },
+  mark: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
-  headText: { flex: 1 },
+  stats: {
+    flexDirection: "row",
+    paddingVertical: 14,
+    borderRadius: 22,
+  },
+  stat: { flex: 1, alignItems: "center" },
+  aboutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
 });

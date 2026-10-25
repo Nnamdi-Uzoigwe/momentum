@@ -1,20 +1,46 @@
 import { AppText } from "@/components/AppText";
+import { BadgeShelf } from "@/components/BadgeShelf";
 import { GoalCard } from "@/components/GoalCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { Screen } from "@/components/Screen";
+import { unlockBadge } from "@/db/badges";
+import { useBadges } from "@/hooks/useBadges";
 import { useGoals } from "@/hooks/useGoals";
+import { BADGES, BADGE_ORDER } from "@/lib/badges";
+import { useCelebration } from "@/lib/celebrationHost";
+import { badgeCelebration } from "@/lib/celebrations";
 import { useTheme } from "@/theme";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
+import { useEffect } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 export default function ProgressScreen() {
   const { colors } = useTheme();
   const { summaries, loaded } = useGoals();
+  const { unlocked, reload: reloadBadges } = useBadges();
+  const { showCelebration } = useCelebration();
 
   const active = summaries.filter((s) => s.goal.status === "active");
   const completed = summaries.filter((s) => s.goal.status === "completed");
+
+  // A completed goal earns the Goal getter badge, once
+  useEffect(() => {
+    if (!loaded || completed.length === 0) return;
+    unlockBadge("goal_complete")
+      .then((isNew) => {
+        if (!isNew) return;
+        reloadBadges();
+        showCelebration(
+          badgeCelebration(
+            BADGES.goal_complete,
+            "You reached a goal. Time to dream a little bigger.",
+          ),
+        );
+      })
+      .catch((e) => console.error("Badge unlock failed", e));
+  }, [loaded, completed.length, reloadBadges, showCelebration]);
 
   const openGoal = (id: string) =>
     router.push({ pathname: "/goal/edit", params: { id } });
@@ -118,6 +144,16 @@ export default function ProgressScreen() {
           </View>
         </View>
       ) : null}
+
+      <View style={styles.section}>
+        <View style={styles.badgeHead}>
+          <AppText variant="heading">Badges</AppText>
+          <AppText variant="caption" muted>
+            {Object.keys(unlocked).length} of {BADGE_ORDER.length} unlocked
+          </AppText>
+        </View>
+        <BadgeShelf unlocked={unlocked} />
+      </View>
     </Screen>
   );
 }
@@ -152,6 +188,11 @@ const styles = StyleSheet.create({
   },
   reviewText: { flex: 1, gap: 2 },
   section: { gap: 12 },
+  badgeHead: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+  },
   empty: {
     alignItems: "center",
     gap: 8,

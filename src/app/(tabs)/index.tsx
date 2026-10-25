@@ -27,7 +27,7 @@ function heroMessage(done: number, total: number) {
 
 export default function TodayScreen() {
   const { colors } = useTheme();
-  const { items, loaded, toggle } = useTodayHabits();
+  const { items, loaded, toggle, archive, remove } = useTodayHabits();
 
   const total = items.length;
   const doneCount = items.filter((i) => i.done).length;
@@ -74,9 +74,20 @@ export default function TodayScreen() {
 
       {total > 0 ? (
         <View style={styles.list}>
-          <AppText variant="heading">Your habits</AppText>
+          <View>
+            <AppText variant="heading">Your habits</AppText>
+            <AppText variant="caption" muted>
+              Swipe left to archive or delete. Long press for details.
+            </AppText>
+          </View>
           {items.map((item) => (
-            <HabitRow key={item.habit.id} item={item} onToggle={toggle} />
+            <HabitRow
+              key={item.habit.id}
+              item={item}
+              onToggle={toggle}
+              onArchive={archive}
+              onDelete={remove}
+            />
           ))}
         </View>
       ) : null}
