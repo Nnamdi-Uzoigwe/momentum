@@ -1,7 +1,9 @@
 import { BrandSplash } from "@/components/BrandSplash";
+import { ReminderSync } from "@/components/ReminderSync";
 import { getDb } from "@/db/client";
 import { getSetting } from "@/db/settings";
 import { OnboardingProvider } from "@/lib/onboarding";
+import { setupNotifications } from "@/lib/reminders";
 import { ThemeProvider, useTheme } from "@/theme";
 import {
   Inter_400Regular,
@@ -50,6 +52,12 @@ export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
+    setupNotifications().catch((e) =>
+      console.error("Notification setup failed", e),
+    );
+  }, []);
+
+  useEffect(() => {
     getDb()
       .then(() => getSetting("onboarding_done"))
       .then((value) => setOnboarded(value === "1"))
@@ -77,6 +85,7 @@ export default function RootLayout() {
           <BottomSheetModalProvider>
             <RootStack />
           </BottomSheetModalProvider>
+          <ReminderSync />
         </OnboardingProvider>
         {showSplash ? <BrandSplash onDone={hideBrandSplash} /> : null}
       </ThemeProvider>

@@ -1,5 +1,6 @@
 import { getTodayItems, toggleCompletion, type TodayItem } from "@/db/habits";
 import { toDateKey } from "@/lib/dates";
+import { syncReminders } from "@/lib/reminders";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 
@@ -28,6 +29,8 @@ export function useTodayHabits() {
       );
       try {
         await toggleCompletion(habitId, toDateKey());
+        // Done today cancels today's nudge; undoing brings it back
+        syncReminders();
       } catch (e) {
         console.error("Failed to toggle habit", e);
       }
