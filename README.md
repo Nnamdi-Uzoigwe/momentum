@@ -1,56 +1,72 @@
-# Welcome to your Expo app 👋
+# Momentum
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A calm, offline-first habit and goal tracker built with React Native and Expo. Momentum turns big goals into small daily wins: create a habit, get one gentle reminder, tap once to check it off, and watch your progress build.
 
-## Get started
+<!-- Add a short demo video or GIF here -->
 
-1. Install dependencies
+## Screenshots
 
-   ```bash
-   npm install
-   ```
+| Today                                | Habit detail                                       | Progress                                   | Weekly review                                        |
+| ------------------------------------ | -------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
+| ![Today](docs/screenshots/today.png) | ![Habit detail](docs/screenshots/habit-detail.png) | ![Progress](docs/screenshots/progress.png) | ![Weekly review](docs/screenshots/weekly-review.png) |
 
-2. Start the app
+## Features
 
-   ```bash
-   npx expo start
-   ```
+- **One-tap check-ins** with an animated check, particle burst, progress ring and haptics
+- **Flexible schedules:** every day, chosen weekdays, or a target such as 3 times per week
+- **Streaks you can trust:** calculated from dated completion records, never a fragile counter
+- **Streak freeze and midnight grace period:** two freezes a month protect a missed day, and check-ins before 3 AM still count for the previous day
+- **Calendar heatmap** for every habit, with tap-to-fix for forgotten days
+- **Goals** linked to habits, with progress measured across the whole goal period
+- **Weekly review** with completion rate, strongest habit, best day and a gentle suggestion
+- **Smart local reminders** that cancel themselves once you have done the habit
+- **Celebrations and badges** for real milestones only (3, 7, 14, 30, 100 and 365 day streaks)
+- **Onboarding**, a personal greeting, light, dark and system themes
+- **Swipe to archive or delete**, with archived habits restorable from Profile
+- **Fully offline:** all data lives in a local SQLite database on the device
 
-In the output, you'll find options to open the app in a
+## Tech stack
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- Expo (React Native) with TypeScript and Expo Router
+- `expo-sqlite` for local storage and versioned migrations
+- `react-native-reanimated`, `react-native-svg` and `react-native-gesture-handler` for animation and gestures
+- `@gorhom/bottom-sheet` for the create sheet
+- `expo-notifications` for local reminders
+- Urbanist and Inter via `@expo-google-fonts`
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Engineering notes
 
-## Get a fresh project
+- **Derived state over stored state.** Streaks, heatmaps, goal progress and the weekly review are all computed from completion records by pure functions in `src/lib`, which keeps them easy to reason about and test.
+- **Local day keys.** Every date is a local `YYYY-MM-DD` key, so a Monday, Wednesday and Friday habit never breaks on a Tuesday, and timezone changes stay correct.
+- **Rolling reminder window.** Reminders are scheduled one day at a time for the next 7 days. A single sync function diffs what should exist against what is pending, so finishing a habit cancels that day's reminder and editing a habit reschedules it.
+- **Versioned migrations** using `PRAGMA user_version`, so new tables ship without wiping user data.
+- **Design tokens.** One theme file drives light and dark mode, with a separate palette for habit colors.
 
-When you're ready, run:
+## Getting started
 
-```bash
-npm run reset-project
+```powershell
+npm install
+npx expo start -c
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Open the project in Expo Go on a phone or an emulator. SQLite does not run in the web build, so use a device.
 
-### Other setup steps
+### Try it with sample data
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Open **Profile**, then **Demo tools**, then **Load sample data**. It adds a few habits with about ten weeks of history, a goal and some badges, which makes every screen easy to explore. The same menu previews the celebrations without waiting for a long streak.
 
-## Learn more
+## Project structure
 
-To learn more about developing your project with Expo, look at the following resources:
+```
+src/
+  app/            Expo Router screens: (tabs), (onboarding), habit, goal, weekly review
+  components/     UI building blocks: HabitRow, Heatmap, ProgressRing, GoalCard and more
+  db/             SQLite client, migrations and queries
+  hooks/          Data hooks for each screen
+  lib/            Pure logic: schedule, streaks, stats, goal progress, weekly review, reminders
+  theme/          Colors, habit color palette and theme provider
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Roadmap
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Ideas from the original product brief that are not built yet: cloud sync and backup, home screen widgets, shared challenges, and AI habit suggestions.
