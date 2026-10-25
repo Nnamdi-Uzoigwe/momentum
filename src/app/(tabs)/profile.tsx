@@ -3,6 +3,7 @@ import { Screen } from "@/components/Screen";
 import { AppearanceCard } from "@/components/profile/AppearanceCard";
 import { ArchivedHabits } from "@/components/profile/ArchivedHabits";
 import { DeveloperTools } from "@/components/profile/DeveloperTools";
+import { NameCard } from "@/components/profile/NameCard";
 import { RemindersCard } from "@/components/profile/RemindersCard";
 import { Section } from "@/components/profile/Section";
 import { useProfileData } from "@/hooks/useProfileData";
@@ -71,6 +72,7 @@ export default function ProfileScreen() {
         </View>
       </LinearGradient>
 
+      <NameCard />
       <AppearanceCard />
       <RemindersCard />
 

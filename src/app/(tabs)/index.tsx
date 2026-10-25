@@ -3,20 +3,14 @@ import { HabitRow } from "@/components/HabitRow";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ProgressRing } from "@/components/ProgressRing";
 import { Screen } from "@/components/Screen";
+import { TodayHeader } from "@/components/TodayHeader";
 import { useTodayHabits } from "@/hooks/useTodayHabits";
+import { useUserName } from "@/hooks/useUserName";
 import { useTheme } from "@/theme";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StyleSheet, View } from "react-native";
-
-function formatToday() {
-  return new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-}
 
 function heroMessage(done: number, total: number) {
   if (done === total) return "Perfect day. Everything is done.";
@@ -28,19 +22,23 @@ function heroMessage(done: number, total: number) {
 export default function TodayScreen() {
   const { colors } = useTheme();
   const { items, loaded, toggle, archive, remove } = useTodayHabits();
+  const { name } = useUserName();
 
   const total = items.length;
   const doneCount = items.filter((i) => i.done).length;
   const ratio = total === 0 ? 0 : doneCount / total;
 
+  const bestStreak = items.reduce(
+    (max, i) =>
+      i.streak.unit === "day" && i.streak.current > max
+        ? i.streak.current
+        : max,
+    0,
+  );
+
   return (
     <Screen>
-      <View>
-        <AppText variant="caption" muted>
-          {formatToday()}
-        </AppText>
-        <AppText variant="display">Today</AppText>
-      </View>
+      <TodayHeader name={name} />
 
       {total > 0 ? (
         <LinearGradient
@@ -49,6 +47,19 @@ export default function TodayScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.hero}
         >
+          <View
+            style={[
+              styles.blobBig,
+              { backgroundColor: `${colors.onAccent}14` },
+            ]}
+          />
+          <View
+            style={[
+              styles.blobSmall,
+              { backgroundColor: `${colors.onAccent}10` },
+            ]}
+          />
+
           <ProgressRing
             progress={ratio}
             size={96}
@@ -68,6 +79,19 @@ export default function TodayScreen() {
             <AppText variant="bodyStrong" color={colors.onAccent}>
               {heroMessage(doneCount, total)}
             </AppText>
+            {bestStreak >= 2 ? (
+              <View
+                style={[
+                  styles.streakChip,
+                  { backgroundColor: `${colors.onAccent}26` },
+                ]}
+              >
+                <Ionicons name="flame" size={14} color={colors.onAccent} />
+                <AppText variant="label" color={colors.onAccent}>
+                  {bestStreak} day streak
+                </AppText>
+              </View>
+            ) : null}
           </View>
         </LinearGradient>
       ) : null}
@@ -128,9 +152,36 @@ const styles = StyleSheet.create({
     gap: 18,
     padding: 20,
     borderRadius: 32,
+    overflow: "hidden",
+  },
+  blobBig: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    top: -60,
+    right: -40,
+  },
+  blobSmall: {
+    position: "absolute",
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    bottom: -30,
+    left: 90,
   },
   heroText: { flex: 1, gap: 4 },
-  list: { gap: 12 },
+  streakChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginTop: 2,
+  },
+  list: { gap: 14 },
   empty: {
     alignItems: "center",
     gap: 8,

@@ -1,9 +1,10 @@
 import { AppText } from "@/components/AppText";
 import { CheckCircle } from "@/components/CheckCircle";
-import type { TodayItem } from "@/db/habits";
 import { describeRule } from "@/lib/schedule";
+import { formatTime } from "@/lib/time";
+import type { TodayRow, WeekDot } from "@/lib/weekDots";
 import { useTheme } from "@/theme";
-import { resolveHabitColor } from "@/theme/habitColors";
+import { resolveHabitColor, type HabitTone } from "@/theme/habitColors";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
@@ -23,7 +24,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 type Props = {
-  item: TodayItem;
+  item: TodayRow;
   onToggle: (habitId: string) => void;
   onArchive: (habitId: string) => void;
   onDelete: (habitId: string) => void;
@@ -38,7 +39,7 @@ type ActionsProps = {
 function RightActions({ progress, onArchive, onDelete }: ActionsProps) {
   const { colors } = useTheme();
 
-  // Hidden until the row starts moving so nothing peeks out from behind it
+  // Hidden until the card starts moving so nothing peeks out from behind it
   const style = useAnimatedStyle(() => ({
     opacity: interpolate(
       progress.value,
@@ -86,9 +87,45 @@ function RightActions({ progress, onArchive, onDelete }: ActionsProps) {
   );
 }
 
+function WeekDotView({ dot, tone }: { dot: WeekDot; tone: HabitTone }) {
+  const { colors } = useTheme();
+
+  let dotStyle;
+  switch (dot.state) {
+    case "done":
+      dotStyle = { backgroundColor: tone.solid };
+      break;
+    case "missed":
+      dotStyle = { backgroundColor: `${colors.error}26` };
+      break;
+    case "pending":
+      dotStyle = { borderWidth: 2, borderColor: tone.solid };
+      break;
+    default:
+      dotStyle = { backgroundColor: `${colors.textMuted}1F` };
+  }
+
+  return (
+    <View style={styles.dotCol}>
+      <View style={[styles.dot, dotStyle]}>
+        {dot.state === "done" ? (
+          <Feather name="check" size={11} color={colors.onAccent} />
+        ) : null}
+      </View>
+      <AppText
+        variant="label"
+        color={dot.isToday ? colors.text : colors.textMuted}
+        style={styles.dotLabel}
+      >
+        {dot.label}
+      </AppText>
+    </View>
+  );
+}
+
 export function HabitRow({ item, onToggle, onArchive, onDelete }: Props) {
   const { colors, isDark } = useTheme();
-  const { habit, done, streak } = item;
+  const { habit, done, streak, week } = item;
   const tone = resolveHabitColor(habit.color, isDark, colors);
 
   const swipeRef = useRef<ElementRef<typeof ReanimatedSwipeable>>(null);
@@ -132,6 +169,12 @@ export function HabitRow({ item, onToggle, onArchive, onDelete }: Props) {
   };
 
   const streakLabel = `${streak.current}${streak.unit === "week" ? "w" : ""}`;
+  const subtitle = [
+    describeRule(habit.rule),
+    habit.reminderTime ? formatTime(habit.reminderTime) : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <Animated.View
@@ -160,7 +203,7 @@ export function HabitRow({ item, onToggle, onArchive, onDelete }: Props) {
             onPress={handlePress}
             onLongPress={handleLongPress}
             onPressIn={() => {
-              scale.value = withTiming(0.97, { duration: 90 });
+              scale.value = withTiming(0.98, { duration: 90 });
             }}
             onPressOut={() => {
               scale.value = withSpring(1, { damping: 14, stiffness: 260 });
@@ -170,48 +213,74 @@ export function HabitRow({ item, onToggle, onArchive, onDelete }: Props) {
             accessibilityLabel={habit.name}
             accessibilityHint="Long press for details. Swipe left to archive or delete."
             style={[
-              styles.row,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                shadowColor: colors.shadow,
-              },
+              styles.card,
+              done
+                ? {
+                    backgroundColor: tone.soft,
+                    borderColor: "transparent",
+                    shadowOpacity: 0,
+                    elevation: 0,
+                  }
+                : {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    shadowColor: colors.shadow,
+                    shadowOpacity: 0.08,
+                    elevation: 2,
+                  },
             ]}
           >
-            <View
-              style={[
-                styles.iconBox,
-                { backgroundColor: done ? colors.surfaceAlt : tone.soft },
-              ]}
-            >
-              <Feather
-                name={habit.icon as keyof typeof Feather.glyphMap}
-                size={22}
-                color={done ? colors.textMuted : tone.solid}
-              />
-            </View>
-
-            <View style={styles.text}>
-              <AppText variant="bodyStrong" muted={done} numberOfLines={1}>
-                {habit.name}
-              </AppText>
-              <AppText variant="caption" muted numberOfLines={1}>
-                {describeRule(habit.rule)}
-              </AppText>
-            </View>
-
-            {streak.current > 0 ? (
+            <View style={styles.top}>
               <View
-                style={[styles.streak, { backgroundColor: colors.accentSoft }]}
+                style={[
+                  styles.iconTile,
+                  { backgroundColor: done ? tone.solid : tone.soft },
+                ]}
               >
-                <Ionicons name="flame" size={14} color={colors.warning} />
-                <AppText variant="label" color={colors.accentDeep}>
-                  {streakLabel}
+                <Feather
+                  name={habit.icon as keyof typeof Feather.glyphMap}
+                  size={24}
+                  color={done ? colors.onAccent : tone.solid}
+                />
+              </View>
+
+              <View style={styles.text}>
+                <AppText variant="heading" numberOfLines={1}>
+                  {habit.name}
+                </AppText>
+                <AppText variant="caption" muted numberOfLines={1}>
+                  {subtitle}
                 </AppText>
               </View>
-            ) : null}
 
-            <CheckCircle done={done} />
+              <CheckCircle done={done} size={38} />
+            </View>
+
+            <View style={styles.bottom}>
+              <View style={styles.dots}>
+                {week.map((dot) => (
+                  <WeekDotView key={dot.key} dot={dot} tone={tone} />
+                ))}
+              </View>
+
+              {streak.current > 0 ? (
+                <View
+                  style={[
+                    styles.streak,
+                    {
+                      backgroundColor: done
+                        ? colors.surface
+                        : colors.accentSoft,
+                    },
+                  ]}
+                >
+                  <Ionicons name="flame" size={14} color={colors.warning} />
+                  <AppText variant="label" color={colors.accentDeep}>
+                    {streakLabel}
+                  </AppText>
+                </View>
+              ) : null}
+            </View>
           </Pressable>
         </ReanimatedSwipeable>
       </Animated.View>
@@ -220,40 +289,52 @@ export function HabitRow({ item, onToggle, onArchive, onDelete }: Props) {
 }
 
 const styles = StyleSheet.create({
-  // Let the row's soft shadow draw outside the swipe container
+  // Let the card's soft shadow draw outside the swipe container
   swipe: { overflow: "visible" },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  card: {
     padding: 14,
-    borderRadius: 24,
+    gap: 14,
+    borderRadius: 28,
     borderWidth: StyleSheet.hairlineWidth,
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
   },
-  iconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+  top: { flexDirection: "row", alignItems: "center", gap: 12 },
+  iconTile: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
   text: { flex: 1, gap: 2 },
+  bottom: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+  },
+  dots: { flexDirection: "row", gap: 6 },
+  dotCol: { alignItems: "center", gap: 3 },
+  dot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dotLabel: { fontSize: 10, lineHeight: 12 },
   streak: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 14,
   },
   actions: { width: 172, flexDirection: "row", gap: 8, paddingLeft: 8 },
   action: {
     flex: 1,
-    borderRadius: 24,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,

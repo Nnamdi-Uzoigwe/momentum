@@ -89,7 +89,7 @@ export default function WelcomeScreen() {
         <PrimaryButton
           label="Get started"
           icon="arrow-right"
-          onPress={() => router.push("/focus")}
+          onPress={() => router.push("/name")}
         />
         <AppText variant="caption" muted style={styles.hint}>
           Takes less than a minute

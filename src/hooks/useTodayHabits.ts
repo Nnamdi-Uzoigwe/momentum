@@ -3,23 +3,41 @@ import {
   getTodayItems,
   setArchived,
   toggleCompletion,
-  type TodayItem,
 } from "@/db/habits";
+import { getHabitHistories } from "@/db/review";
 import { useCelebration } from "@/lib/celebrationHost";
 import { evaluateCheckIn } from "@/lib/celebrations";
 import { toDateKey } from "@/lib/dates";
 import { syncReminders } from "@/lib/reminders";
+import { lastSevenDays, type TodayRow } from "@/lib/weekDots";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 
 export function useTodayHabits() {
-  const [items, setItems] = useState<TodayItem[]>([]);
+  const [items, setItems] = useState<TodayRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const { showToast, showCelebration } = useCelebration();
 
-  const reload = useCallback(async (): Promise<TodayItem[]> => {
-    const next = await getTodayItems(toDateKey());
+  const reload = useCallback(async (): Promise<TodayRow[]> => {
+    const today = toDateKey();
+    const [base, histories] = await Promise.all([
+      getTodayItems(today),
+      getHabitHistories(),
+    ]);
+    const datesById = new Map(
+      histories.map((h) => [h.habit.id, h.dates] as const),
+    );
+
+    const next: TodayRow[] = base.map((item) => ({
+      ...item,
+      week: lastSevenDays(
+        item.habit,
+        datesById.get(item.habit.id) ?? [],
+        today,
+      ),
+    }));
+
     setItems(next);
     setLoaded(true);
     return next;
@@ -38,7 +56,17 @@ export function useTodayHabits() {
 
       // Optimistic flip so the check animation starts instantly
       setItems((prev) =>
-        prev.map((i) => (i.habit.id === habitId ? { ...i, done: !i.done } : i)),
+        prev.map((i) =>
+          i.habit.id !== habitId
+            ? i
+            : {
+                ...i,
+                done: !i.done,
+                week: i.week.map((d) =>
+                  d.isToday ? { ...d, state: i.done ? "pending" : "done" } : d,
+                ),
+              },
+        ),
       );
 
       let nowDone = false;
@@ -50,7 +78,7 @@ export function useTodayHabits() {
       }
 
       // Reload to refresh streak numbers (and roll back on failure)
-      let next: TodayItem[] | null = null;
+      let next: TodayRow[] | null = null;
       try {
         next = await reload();
       } catch (e) {
